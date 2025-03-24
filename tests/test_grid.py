@@ -22,20 +22,25 @@
 # SOFTWARE.
 
 import numpy as np
-from smecv_grid import SMECV_Grid_v042, SMECV_Grid_v052
+from smecv_grid import SMECV_Grid_v042, SMECV_Grid_v052, SMECV_Grid_MR_v01
 import pytest
 
-@pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v042, SMECV_Grid_v052])
-def test_SMECV_Grid_land(SMECV_Grid):
+
+@pytest.mark.parametrize("SMECV_Grid, gpi, size, activesize",
+                         [(SMECV_Grid_v042, 739040, 1036800, 244243,),
+                          (SMECV_Grid_v052, 739040, 1036800, 244243,),
+                          (SMECV_Grid_MR_v01, 4619601, 6480000, 2195242,), ])
+def test_SMECV_Grid_land(SMECV_Grid, gpi, size, activesize):
     grid = SMECV_Grid(subset_flag='land')
     gp, dist = grid.find_nearest_gpi(-99.87, 38.37)
-    assert gp == 739040
-    lon, lat = grid.gpi2lonlat(739040)
-    assert lon == -99.875
-    assert lat == 38.375
-    assert grid.gpi2cell(739040) == 601
-    assert grid.gpis.size == 1036800
-    assert grid.activegpis.size == 244243
+    assert gp == gpi
+    lon, lat = grid.gpi2lonlat(gp)
+    np.testing.assert_almost_equal([lon], [-99.875], 1)
+    np.testing.assert_almost_equal([lat], [38.375], 1)
+    assert grid.gpi2cell(gp) == 601
+    assert grid.gpis.size == size
+    assert grid.activegpis.size == activesize
+
 
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v042, SMECV_Grid_v052])
 def test_SMECV_Grid_global(SMECV_Grid):
@@ -49,6 +54,7 @@ def test_SMECV_Grid_global(SMECV_Grid):
     assert grid.gpis.size == 1036800
     assert grid.activegpis.size == 1036800
 
+
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v042, SMECV_Grid_v052])
 def test_SMECV_Grid_rainforest(SMECV_Grid):
     grid = SMECV_Grid(subset_flag='rainforest')
@@ -60,6 +66,7 @@ def test_SMECV_Grid_rainforest(SMECV_Grid):
     assert grid.gpi2cell(516349) == 1493
     assert grid.gpis.size == 1036800
     assert grid.activegpis.size == 14851
+
 
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v052])
 def test_SMECV_Grid_denseveg(SMECV_Grid):
@@ -75,6 +82,7 @@ def test_SMECV_Grid_denseveg(SMECV_Grid):
     assert grid.gpis[0] == 0
     assert grid.activegpis[0] == 922916
 
+
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v052])
 def test_SMECV_Grid_urban(SMECV_Grid):
     grid = SMECV_Grid(subset_flag='landcover_class', subset_value=190.)
@@ -89,6 +97,7 @@ def test_SMECV_Grid_urban(SMECV_Grid):
     assert grid.gpis[0] == 0
     assert grid.activegpis[0] == 890802
 
+
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v052])
 def test_SMECV_Grid_desert(SMECV_Grid):
     grid = SMECV_Grid(subset_flag='landcover_class', subset_value=[190., 200.])
@@ -100,9 +109,10 @@ def test_SMECV_Grid_desert(SMECV_Grid):
     assert lat == 24.125
     assert grid.gpi2cell(657397) == 1354
     assert grid.gpis.size == 1036800
-    assert grid.activegpis.size == 421+31162
+    assert grid.activegpis.size == 421 + 31162
     assert grid.gpis[0] == 0
     assert grid.activegpis[0] == 995442
+
 
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v052])
 def test_SMECV_Grid_tropical(SMECV_Grid):
@@ -119,14 +129,16 @@ def test_SMECV_Grid_tropical(SMECV_Grid):
     assert grid.gpis[0] == 0
     assert grid.activegpis[0] == 674205
 
+
 @pytest.mark.parametrize("SMECV_Grid", [SMECV_Grid_v052])
 def test_bbox_subgrid(SMECV_Grid):
-    grid = SMECV_Grid('land') # create land-subgrid for europe
+    grid = SMECV_Grid('land')  # create land-subgrid for europe
     min_lon, min_lat, max_lon, max_lat = -11., 34., 43., 71.
     subgrid = grid.subgrid_from_bbox(min_lon, min_lat, max_lon, max_lat)
     assert all(subgrid.activearrlat >= min_lat) and all(subgrid.activearrlat <= max_lat)
     assert all(subgrid.activearrlon >= min_lon) and all(subgrid.activearrlon <= max_lon)
     assert subgrid.activegpis.size == 18408
+
 
 @pytest.mark.parametrize("subset", [None, 'land'])
 def test_bbox(subset):
@@ -139,19 +151,19 @@ def test_bbox(subset):
         assert grid.shape == (148, 216)
 
     assert all(np.diff(grid.activegpis) > 0)
-    assert all(grid.activearrlon>=min_lon)
-    assert all(grid.activearrlon<=max_lon)
-    assert all(grid.activearrlat<=max_lat)
-    assert all(grid.activearrlat>=min_lat)
+    assert all(grid.activearrlon >= min_lon)
+    assert all(grid.activearrlon <= max_lon)
+    assert all(grid.activearrlat <= max_lat)
+    assert all(grid.activearrlat >= min_lat)
 
 
 def test_vers_diff():
     landgrid4, globgrid4 = SMECV_Grid_v042('land'), SMECV_Grid_v042(None)
     landgrid5, globgrid5 = SMECV_Grid_v052('land'), SMECV_Grid_v052(None)
-    assert landgrid4.find_nearest_gpi(16.3,48.1)[0] == landgrid5.find_nearest_gpi(16.3,48.1)[0]
-    assert landgrid4.gpi2cell(landgrid4.find_nearest_gpi(16.3,48.1)[0]) == \
-           landgrid5.gpi2cell(landgrid5.find_nearest_gpi(16.3,48.1)[0])
-    assert landgrid5.arrlat[546546] == -1 * landgrid4.arrlat[546546] # because lats got flipped
+    assert landgrid4.find_nearest_gpi(16.3, 48.1)[0] == landgrid5.find_nearest_gpi(16.3, 48.1)[0]
+    assert landgrid4.gpi2cell(landgrid4.find_nearest_gpi(16.3, 48.1)[0]) == \
+           landgrid5.gpi2cell(landgrid5.find_nearest_gpi(16.3, 48.1)[0])
+    assert landgrid5.arrlat[546546] == -1 * landgrid4.arrlat[546546]  # because lats got flipped
     assert globgrid5.activegpis[0] == 0
     assert globgrid5.activearrcell[0] == 0
     assert globgrid4.activegpis[0] == 1035360
@@ -161,4 +173,3 @@ def test_vers_diff():
     assert globgrid4 == globgrid5
     assert landgrid4 == landgrid5
     assert SMECV_Grid_v042('rainforest') == SMECV_Grid_v052('rainforest')
-

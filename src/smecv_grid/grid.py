@@ -23,11 +23,12 @@
 
 import os
 import pygeogrids.netcdf as ncgrid
-from pygeogrids.grids import BasicGrid, CellGrid, lonlat2cell
+from pygeogrids.grids import CellGrid, lonlat2cell
 import numpy as np
 import warnings
 
-def get_grid_definition_filename(version:str) -> str:
+
+def get_grid_definition_filename(version: str) -> str:
     """
     Get file path of netcdf for the passed version as in the file name.
     """
@@ -36,7 +37,8 @@ def get_grid_definition_filename(version:str) -> str:
     return os.path.join(grid_info_path,
                         'ESA-CCI-SOILMOISTURE-LAND_AND_RAINFOREST_MASK-fv{}.nc'.format(version))
 
-def safe_arange(start:float, stop:float, step:float) -> np.array:
+
+def safe_arange(start: float, stop: float, step: float) -> np.array:
     """ Version of np.aranage that can handle small step sizes """
 
     f_step = (1. / float(step))
@@ -44,7 +46,8 @@ def safe_arange(start:float, stop:float, step:float) -> np.array:
 
     return vals / f_step
 
-def range2slice(all_values:np.array, min_max:tuple, include_last=True) -> slice:
+
+def range2slice(all_values: np.array, min_max: tuple, include_last=True) -> slice:
     """ Create slice to subset 2d arrays from dimension values """
 
     range_values = all_values[(all_values >= min_max[0]) & (all_values <= min_max[1])]
@@ -68,7 +71,7 @@ def meshgrid(resolution=0.25, cellsize=5., flip_lats=False, lon_range=None,
     flip_lats : bool, optional (default: False)
         Flip the lats, gpis and cells stored in the grid. This means that
         each lonlat will still have the correct gpi/cell number, but self.arrgpi[gpi]
-        will NOT return the correct gpi, i.e the gpi can't be used to index the
+        will NOT return the correct gpi, i.e., the gpi can't be used to index the
         arrays. This option was used in grid v4 and changed afterwards and is
         kept for backwards compatibility. Should NOT be used anymore.
         ------------------------------------------------------------------------
@@ -107,7 +110,7 @@ def meshgrid(resolution=0.25, cellsize=5., flip_lats=False, lon_range=None,
 
     shape = (len(glob_lats), len(glob_lons))
 
-    gpis = np.arange(shape[0]*shape[1]).reshape(shape)
+    gpis = np.arange(shape[0] * shape[1]).reshape(shape)
 
     if flip_lats:
         lat = np.flipud(lat)
@@ -140,6 +143,7 @@ def meshgrid(resolution=0.25, cellsize=5., flip_lats=False, lon_range=None,
 
     return lon, lat, gpis, cells, shape
 
+
 def SMECV_Grid_v042(subset_flag='land'):
     """
     Load a SMECV Grid as used in the production of ESA CCI SM v4.
@@ -153,18 +157,18 @@ def SMECV_Grid_v042(subset_flag='land'):
     Returns
     -------
     grid : pygeogrids.CellGrid
-        CellGrid object of the selected subset. In Quarter Degree resolution.
+        Selected subset in quarter degree resolution.
     """
 
     warnings.warn("SMECV Grid v4 is deperecated. Please use a newer grid version.",
                   DeprecationWarning)
 
     lon, lat, gpis, cells, shape = meshgrid(resolution=0.25, cellsize=5.,
-                                        flip_lats=True)
+                                            flip_lats=True)
 
     if subset_flag is not None:
         subset_grid = ncgrid.load_grid(get_grid_definition_filename(version='04.2'),
-                                   subset_flag=subset_flag, subset_value=1.)
+                                       subset_flag=subset_flag, subset_value=1.)
         subset = subset_grid.subset
     else:
         subset = None
@@ -188,22 +192,29 @@ class SMECV_Grid_v052(CellGrid):
         i.e 1. for masks (high_vod, land) or a float or list of floats for one or
         multiple ESA CCI Landcover classes (e.g 190 to load urban points only)
     cellsize : float
-        Grid points are allocated to /combined into larger cells. By default
-        5 DEG cells are used (each cell contains then 400 grid points). This
-        value can be changed, to e.g. increase the number of points that are
+        Grid points are allocated to /combined into larger cells. By default,
+    5 DEG cells are used (400 GPIs for a 0.25 degrees resolution).
+        This value can be changed, to e.g. increase the number of points that are
         stored within a cell file when splitting data into chunks.
+    resolution: float
+        Resolution of the grid in degrees
+    version : str
+        String code that refers to the specific grid definition file.
+        The resolution parameter should match the resolution of the given definition
+        file.
     """
 
-    def __init__(self, subset_flag='land', subset_value=1., cellsize=5.):
+    def __init__(self, subset_flag='land', subset_value=1., cellsize=5., resolution=.25, version='05.2'):
 
-        self.resolution = 0.25
+        self.resolution = resolution
         self.cellsize = cellsize
+        self.version = version
 
         self.subset_flag, self.subset_value = subset_flag, subset_value
 
         lon, lat, gpis, cells, shape = \
             meshgrid(resolution=self.resolution, cellsize=self.cellsize,
-                     flip_lats=False) # global grid
+                     flip_lats=False)  # global grid
 
         subset_gpis = self._load_subset(self.subset_flag, self.subset_value)
 
@@ -211,13 +222,12 @@ class SMECV_Grid_v052(CellGrid):
                                               cells=cells, subset=subset_gpis,
                                               shape=shape)
 
-    @staticmethod
-    def _load_subset(subset_flag:{str,None}, subset_value:{int,list}) -> {np.array,None}:
+    def _load_subset(self, subset_flag: {str, None}, subset_value: {int, list}) -> {np.array, None}:
         """ Load grid points for the subset from definition file"""
 
         if subset_flag is not None:
-            subset_grid = ncgrid.load_grid(get_grid_definition_filename(version='05.2'),
-                subset_flag=subset_flag, subset_value=subset_value)
+            name = get_grid_definition_filename(version=self.version)
+            subset_grid = ncgrid.load_grid(name, subset_flag=subset_flag, subset_value=subset_value)
 
             if isinstance(subset_grid.activegpis, np.ma.masked_array):
                 subset = subset_grid.activegpis.data
@@ -248,7 +258,7 @@ class SMECV_Grid_v052(CellGrid):
 
         Returns
         -------
-        subgrid : {BasicGrid,CellGrid}
+        subgrid : {BasicGrid, CellGrid}
             Subgrid of the global grid within the bounding box.
         """
 
@@ -269,5 +279,7 @@ class SMECV_Grid_v052(CellGrid):
         return grid
 
 
-if __name__ == '__main__':
-    grid = SMECV_Grid_v052(None).subgrid_from_bbox(-11, 34, 43, 71)
+class SMECV_Grid_MR_v01(SMECV_Grid_v052):
+    """SMECV grid on a 0.1° resolution"""
+    def __init__(self, *args, **kwargs):
+        super(SMECV_Grid_MR_v01, self).__init__(*args, resolution=.1, version="MR01.0", **kwargs)
